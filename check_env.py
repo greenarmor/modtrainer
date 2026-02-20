@@ -13,7 +13,7 @@ REQUIRED_PACKAGES: Dict[str, str] = {
     "datasets": "2.18.0",
     "accelerate": "0.28.0",
     "peft": "0.10.0",
-    "bitsandbytes": "0.43.0",
+    "bitsandbytes": "0.43.1",
     "trl": "0.8.1",
     "sentencepiece": "0.2.0",
     "numpy": "1.26.4",
@@ -76,6 +76,28 @@ def check_cuda() -> Tuple[List[str], List[str]]:
     return infos, warnings
 
 
+def check_path_contamination() -> Tuple[List[str], List[str]]:
+    infos: List[str] = []
+    warnings: List[str] = []
+
+    path_entries = [entry for entry in os.environ.get("PATH", "").split(":") if entry]
+    suspicious_entries = [
+        entry
+        for entry in path_entries
+        if "meta-llama" in entry or "govchain-model" in entry
+    ]
+
+    if suspicious_entries:
+        warnings.append(
+            "PATH appears to contain model identifiers/paths that are not binaries. "
+            "Remove these entries from shell startup files: "
+            + ", ".join(suspicious_entries)
+        )
+    else:
+        infos.append("PATH does not contain obvious model-name contamination.")
+
+    return infos, warnings
+
 def check_packages() -> Tuple[List[str], List[str]]:
     infos: List[str] = []
     warnings: List[str] = []
@@ -104,10 +126,11 @@ def main() -> None:
 
     token_infos, token_warnings = check_token(args.model_name)
     cuda_infos, cuda_warnings = check_cuda()
+    path_infos, path_warnings = check_path_contamination()
     pkg_infos, pkg_warnings = check_packages()
 
-    all_infos.extend(token_infos + cuda_infos + pkg_infos)
-    all_warnings.extend(token_warnings + cuda_warnings + pkg_warnings)
+    all_infos.extend(token_infos + cuda_infos + path_infos + pkg_infos)
+    all_warnings.extend(token_warnings + cuda_warnings + path_warnings + pkg_warnings)
 
     print("== Preflight Environment Check ==")
     print(f"Model target: {args.model_name}")
