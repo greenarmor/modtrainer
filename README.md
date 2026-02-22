@@ -24,6 +24,7 @@ Install dependencies:
 
 ```bash
 pip install -r requirements.txt
+# requirements now target CUDA 12.4-compatible PyTorch wheels (cu124)
 ```
 
 > Note: `requirements.txt` pins package versions. If you deviate, run the preflight checker to confirm compatibility.

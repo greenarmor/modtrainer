@@ -4,9 +4,9 @@ This runbook addresses the preflight failure where `torch` sees a GPU, but `bits
 
 ## Symptoms
 
-- `torch` reports `2.8.0+cu128` and `CUDA available: True`.
+- `torch` reports a CUDA tag that does not match your intended runtime (for example `2.8.0+cu128`) and `CUDA available: True`.
 - `bitsandbytes` fails with:
-  - `Required library version not found: libbitsandbytes_cuda128.so`
+  - `Required library version not found: libbitsandbytes_cudaXXX.so`
   - fallback to `libbitsandbytes_cpu.so`
   - `CUDA Setup failed`
 - Warnings like:
@@ -15,7 +15,7 @@ This runbook addresses the preflight failure where `torch` sees a GPU, but `bits
 ## Root causes
 
 1. **CUDA/torch/bitsandbytes mismatch**
-   - You are on a CUDA 12.8 PyTorch build (`cu128`), but your `bitsandbytes` wheel does not provide `libbitsandbytes_cuda128.so`.
+   - Your PyTorch CUDA tag (for example `cu128`) does not match the `bitsandbytes` wheel binaries available in your environment.
 2. **`PATH` contamination**
    - A model name string appears in `PATH`, which causes directory warnings.
 
@@ -38,7 +38,7 @@ If those entries appear in `PATH`, remove the faulty export from `~/.bashrc`/`~/
 
 Your preflight expects approximately:
 
-- `torch==2.2.2`
+- `torch==2.5.1+cu124`
 - `transformers==4.39.3`
 - `sentencepiece==0.2.0`
 - `accelerate==0.28.0`
@@ -49,18 +49,18 @@ Use a clean virtual environment and reinstall pinned versions.
 
 ### 3) Pick a supported CUDA path for bitsandbytes
 
-The most reliable option is using a PyTorch build with CUDA 12.1 (or 11.8) plus a matching `bitsandbytes` wheel.
+For CUDA 12.4 systems, prefer a PyTorch `cu124` build plus a matching recent `bitsandbytes` wheel.
 
-Example (CUDA 12.1 route):
+Example (CUDA 12.4 route):
 
 ```bash
 pip uninstall -y torch torchvision torchaudio bitsandbytes
 pip cache purge
 
-pip install --index-url https://download.pytorch.org/whl/cu121 \
-  torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2
+pip install --index-url https://download.pytorch.org/whl/cu124 \
+  torch==2.5.1+cu124 torchvision==0.20.1+cu124 torchaudio==2.5.1+cu124
 
-pip install bitsandbytes==0.43.1 \
+pip install bitsandbytes==0.45.2 \
   transformers==4.39.3 peft==0.10.0 accelerate==0.28.0 \
   trl==0.8.1 datasets==2.18.0 sentencepiece==0.2.0 numpy==1.26.4
 ```

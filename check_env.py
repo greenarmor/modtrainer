@@ -8,12 +8,12 @@ from typing import Dict, List, Tuple
 DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 REQUIRED_PACKAGES: Dict[str, str] = {
-    "torch": "2.2.2",
+    "torch": "2.5.1+cu124",
     "transformers": "4.39.3",
     "datasets": "2.18.0",
     "accelerate": "0.28.0",
     "peft": "0.10.0",
-    "bitsandbytes": "0.43.1",
+    "bitsandbytes": "0.45.2",
     "trl": "0.8.1",
     "sentencepiece": "0.2.0",
     "numpy": "1.26.4",
