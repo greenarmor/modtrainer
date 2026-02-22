@@ -1,6 +1,7 @@
 import argparse
 import importlib
 import os
+import shlex
 import sys
 from importlib import metadata
 from typing import Dict, List, Tuple
@@ -39,6 +40,61 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+
+
+def load_dotenv_if_present(dotenv_path: str = ".env") -> Tuple[List[str], List[str]]:
+    infos: List[str] = []
+    warnings: List[str] = []
+
+    if not os.path.exists(dotenv_path):
+        infos.append("No .env file detected (skipping dotenv load).")
+        return infos, warnings
+
+    loaded_keys: List[str] = []
+
+    try:
+        with open(dotenv_path, "r", encoding="utf-8") as file_obj:
+            for raw_line in file_obj:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+
+                if line.startswith("export "):
+                    line = line[len("export "):].strip()
+
+                if "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                key = key.strip()
+                if not key:
+                    continue
+
+                value = value.strip()
+                if value:
+                    try:
+                        value = shlex.split(value)[0] if value[0] in {'"', "'"} else value
+                    except Exception:
+                        pass
+
+                if key not in os.environ:
+                    os.environ[key] = value
+                    loaded_keys.append(key)
+
+        if loaded_keys:
+            infos.append(
+                f"Loaded {len(loaded_keys)} variable(s) from {dotenv_path}: "
+                + ", ".join(sorted(loaded_keys))
+            )
+        else:
+            infos.append(
+                f"Found {dotenv_path}, but did not override existing shell variables."
+            )
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"Failed to load {dotenv_path}: {exc}")
+
+    return infos, warnings
+
 def is_gated_model(model_name: str) -> bool:
     return model_name.startswith("meta-llama/")
 
@@ -48,8 +104,12 @@ def check_token(model_name: str) -> Tuple[List[str], List[str]]:
     infos: List[str] = []
 
     token = os.environ.get("HF_TOKEN")
-    if token:
+    if token and token != "hf_your_huggingface_token_here":
         infos.append("HF_TOKEN is set.")
+    elif token == "hf_your_huggingface_token_here":
+        warnings.append(
+            "HF_TOKEN still has the placeholder value from .env.example. Set your real token before training."
+        )
     elif is_gated_model(model_name):
         warnings.append(
             "HF_TOKEN is not set for a likely gated model. Set HF_TOKEN before training."
@@ -146,15 +206,16 @@ def main() -> None:
     all_infos: List[str] = []
     all_warnings: List[str] = []
 
+    dotenv_infos, dotenv_warnings = load_dotenv_if_present()
     token_infos, token_warnings = check_token(args.model_name)
     py_infos, py_warnings = check_python_version()
     cuda_infos, cuda_warnings = check_cuda()
     path_infos, path_warnings = check_path_contamination()
     pkg_infos, pkg_warnings = check_packages()
 
-    all_infos.extend(token_infos + py_infos + cuda_infos + path_infos + pkg_infos)
+    all_infos.extend(dotenv_infos + token_infos + py_infos + cuda_infos + path_infos + pkg_infos)
     all_warnings.extend(
-        token_warnings + py_warnings + cuda_warnings + path_warnings + pkg_warnings
+        dotenv_warnings + token_warnings + py_warnings + cuda_warnings + path_warnings + pkg_warnings
     )
 
     print("== Preflight Environment Check ==")

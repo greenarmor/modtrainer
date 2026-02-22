@@ -53,7 +53,7 @@ Optional overrides available in `.env.example`:
 - `SEED`
 - `MAX_SEQ_LENGTH`
 
-Load variables into your shell (example):
+Preflight now auto-loads `.env` if present, but loading it in your shell is still useful for training commands (example):
 
 ```bash
 set -a
@@ -73,8 +73,9 @@ python check_env.py --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instr
 
 This verifies:
 
-- HF token presence (or warns)
+- `.env` loading and HF token presence (or warns)
 - CUDA availability
+- PATH contamination for obvious model-path mistakes
 - Installed package versions
 
 If you want CI/automation to fail on warnings:
