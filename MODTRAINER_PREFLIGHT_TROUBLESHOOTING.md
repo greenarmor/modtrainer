@@ -2,6 +2,15 @@
 
 This runbook addresses the preflight failure where `torch` sees a GPU, but `bitsandbytes` fails CUDA setup.
 
+## Is the Python 3.13 warning critical?
+
+Usually **no**. It is a compatibility warning, not an immediate blocker:
+
+- If you only need `torch` + `transformers` + `bitsandbytes` and installs succeed, you can continue on Python 3.13.
+- It becomes **critical** only when your required wheel set is unavailable for cp313 (most commonly `torchvision`/`torchaudio` pins, or fallback source builds that fail).
+
+Use the decision flow below and switch to Python 3.12 only when needed.
+
 ## Symptoms
 
 - `torch` reports a CUDA tag that does not match your intended runtime (for example `2.8.0+cu128`) and `CUDA available: True`.
@@ -20,6 +29,27 @@ This runbook addresses the preflight failure where `torch` sees a GPU, but `bits
    - A model name string appears in `PATH`, which causes directory warnings.
 
 ## Fix plan
+
+### 0) Decision flow: stay on 3.13 vs switch to 3.12
+
+1. Try the pinned install flow in your current environment.
+2. If install and preflight pass, stay on Python 3.13.
+3. If you hit any of these blockers, switch to Python 3.12:
+   - Missing wheel for your pinned package set (especially `torchvision`/`torchaudio` CUDA combos).
+   - Source build failures for `sentencepiece`/native packages.
+   - Repeated resolver conflicts that force incompatible versions.
+
+Quick check command:
+
+```bash
+python - <<'PY'
+import sys
+print(sys.version)
+PY
+
+pip index versions torchvision --index-url https://download.pytorch.org/whl/cu124
+pip index versions torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
 
 ### 1) Clean shell variables
 
@@ -81,6 +111,45 @@ Notes:
 - If you need `torchvision`/`torchaudio`, either:
   1) create a Python 3.12 virtual environment and use the strict `2.5.1` family, or
   2) choose versions that exist for your Python ABI from the cu124 index (`pip index versions torchvision --index-url https://download.pytorch.org/whl/cu124`).
+
+### 3b) Runbook: switch to Python 3.12 only when necessary
+
+If Step 0 shows your required wheels are unavailable on cp313, use this minimal downgrade path.
+
+#### Option A: using `pyenv` (recommended)
+
+```bash
+pyenv install 3.12.9
+pyenv local 3.12.9
+
+python -m venv .venv312
+source .venv312/bin/activate
+python -m pip install --upgrade pip
+```
+
+#### Option B: system Python 3.12 available
+
+```bash
+python3.12 -m venv .venv312
+source .venv312/bin/activate
+python -m pip install --upgrade pip
+```
+
+Reinstall baseline packages:
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cu124 \
+  torch==2.5.1+cu124 torchvision==0.20.1+cu124 torchaudio==2.5.1+cu124
+
+pip install -r requirements.txt
+```
+
+Then validate:
+
+```bash
+python check_env.py --strict --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+python -m bitsandbytes
+```
 
 ### 4) Verify CUDA runtime library visibility
 
