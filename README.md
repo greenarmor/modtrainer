@@ -224,6 +224,7 @@ The image default command launches `python3 training/finetune_lora.py`.
 - **Very slow training:** verify CUDA is available (`python check_env.py`).
 - **OOM errors:** reduce `--max-seq-length` or tune batch/accumulation settings in `training/finetune_lora.py`.
 - **Policy eval failing:** inspect printed violations/missing concepts and adjust generated responses or dataset targets.
+- **`sentencepiece` build error on Python 3.13 (`cmake`/`pkg-config` missing):** install `sentencepiece==0.2.1` instead of `0.2.0`, or use a Python 3.12 virtualenv for strict baseline pins.
 
 ---
 

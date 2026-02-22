@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 
 DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 
-REQUIRED_PACKAGES: Dict[str, str] = {
+BASE_REQUIRED_PACKAGES: Dict[str, str] = {
     "torch": "2.5.1+cu124",
     "transformers": "4.39.3",
     "datasets": "2.18.0",
@@ -15,10 +15,16 @@ REQUIRED_PACKAGES: Dict[str, str] = {
     "peft": "0.10.0",
     "bitsandbytes": "0.45.2",
     "trl": "0.8.1",
-    "sentencepiece": "0.2.0",
     "numpy": "1.26.4",
 }
 
+
+def get_required_packages() -> Dict[str, str]:
+    required = dict(BASE_REQUIRED_PACKAGES)
+    # sentencepiece 0.2.0 often lacks cp313 wheels and triggers source builds.
+    # Use 0.2.1 as the practical baseline on Python 3.13+.
+    required["sentencepiece"] = "0.2.1" if sys.version_info >= (3, 13) else "0.2.0"
+    return required
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -76,6 +82,22 @@ def check_cuda() -> Tuple[List[str], List[str]]:
     return infos, warnings
 
 
+def check_python_version() -> Tuple[List[str], List[str]]:
+    infos: List[str] = []
+    warnings: List[str] = []
+
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    infos.append(f"python version: {py_version}")
+
+    if sys.version_info >= (3, 13):
+        warnings.append(
+            "Python 3.13 detected. Some pinned CUDA wheel combinations (especially torchvision/torchaudio) "
+            "may be unavailable. Prefer Python 3.12 for the most predictable install matrix."
+        )
+
+    return infos, warnings
+
+
 def check_path_contamination() -> Tuple[List[str], List[str]]:
     infos: List[str] = []
     warnings: List[str] = []
@@ -102,7 +124,7 @@ def check_packages() -> Tuple[List[str], List[str]]:
     infos: List[str] = []
     warnings: List[str] = []
 
-    for pkg, expected in REQUIRED_PACKAGES.items():
+    for pkg, expected in get_required_packages().items():
         try:
             importlib.import_module(pkg)
             installed = metadata.version(pkg)
@@ -125,12 +147,15 @@ def main() -> None:
     all_warnings: List[str] = []
 
     token_infos, token_warnings = check_token(args.model_name)
+    py_infos, py_warnings = check_python_version()
     cuda_infos, cuda_warnings = check_cuda()
     path_infos, path_warnings = check_path_contamination()
     pkg_infos, pkg_warnings = check_packages()
 
-    all_infos.extend(token_infos + cuda_infos + path_infos + pkg_infos)
-    all_warnings.extend(token_warnings + cuda_warnings + path_warnings + pkg_warnings)
+    all_infos.extend(token_infos + py_infos + cuda_infos + path_infos + pkg_infos)
+    all_warnings.extend(
+        token_warnings + py_warnings + cuda_warnings + path_warnings + pkg_warnings
+    )
 
     print("== Preflight Environment Check ==")
     print(f"Model target: {args.model_name}")

@@ -58,12 +58,29 @@ pip uninstall -y torch torchvision torchaudio bitsandbytes
 pip cache purge
 
 pip install --index-url https://download.pytorch.org/whl/cu124 \
-  torch==2.5.1+cu124 torchvision==0.20.1+cu124 torchaudio==2.5.1+cu124
+  torch==2.5.1+cu124
 
 pip install bitsandbytes==0.45.2 \
   transformers==4.39.3 peft==0.10.0 accelerate==0.28.0 \
   trl==0.8.1 datasets==2.18.0 sentencepiece==0.2.0 numpy==1.26.4
 ```
+
+If you are on Python 3.13, use this variant to avoid source builds:
+
+```bash
+pip install bitsandbytes==0.45.2 \
+  transformers==4.39.3 peft==0.10.0 accelerate==0.28.0 \
+  trl==0.8.1 datasets==2.18.0 sentencepiece==0.2.1 numpy==1.26.4
+```
+
+Notes:
+
+- `torchvision` and `torchaudio` are not required by this repository's training path.
+- On Python 3.13, `torch==2.5.1+cu124` may install while matching `torchvision==0.20.1+cu124` is unavailable.
+- On Python 3.13, `sentencepiece==0.2.0` may fall back to source build and fail if `cmake`/`pkg-config` are missing. Prefer `sentencepiece==0.2.1` on Python 3.13+.
+- If you need `torchvision`/`torchaudio`, either:
+  1) create a Python 3.12 virtual environment and use the strict `2.5.1` family, or
+  2) choose versions that exist for your Python ABI from the cu124 index (`pip index versions torchvision --index-url https://download.pytorch.org/whl/cu124`).
 
 ### 4) Verify CUDA runtime library visibility
 
