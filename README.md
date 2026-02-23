@@ -168,6 +168,27 @@ Current checks include:
 - **Forbidden phrases** (e.g., DeFi/yield-farming style terms)
 - **Required concept coverage** (`public funds`, `sovereign`, `legal`, `audit`)
 
+### Generate `outputs/generated_outputs.jsonl` from your adapter
+
+After fine-tuning, create model responses first, then run eval against that JSONL:
+
+```bash
+python eval/generate_outputs.py \
+  --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}" \
+  --adapter-dir "${ADAPTER_DIR:-govchain-lora}" \
+  --input "${INPUT_PATH:-data/val.jsonl}" \
+  --output "${OUTPUT_PATH:-outputs/generated_outputs.jsonl}" \
+  --hf-token "${HF_TOKEN}"
+
+python eval/run_policy_eval.py --inputs outputs/generated_outputs.jsonl --max-errors 0
+```
+
+Notes:
+
+- `eval/run_policy_eval.py` reads existing JSONL files; it does not generate outputs itself.
+- `eval/generate_outputs.py` includes tokenizer fallback (`use_fast=False`) and sets an offload folder by default (`./offload`) to avoid `ValueError: We need an offload_dir ...` on constrained GPUs.
+- If GPU memory is still tight, force CPU loading/inference with `--device-map cpu`.
+
 ---
 
 ## 8) End-to-end quick run (copy/paste)
@@ -232,6 +253,8 @@ The image default command launches `python3 training/finetune_lora.py`.
 - **`python3.12: command not found` when creating a venv:** use your available interpreter instead (`python3 -m venv venv`), then verify compatibility with `python check_env.py --strict`. Only switch interpreters if preflight reports blocking issues.
 - **Host has CUDA 12.8 installed but repo requires CUDA 12.4 torch wheels:** keep your NVIDIA driver, but make sure the Python wheel is `torch==2.5.1+cu124` from this repo. Use a clean venv and run `pip install --force-reinstall -r requirements.txt`, then verify `torch.version.cuda` reports `12.4` via `python check_env.py`.
 - **`FutureWarning` about `resume_download` from `huggingface_hub.file_download`:** this is a harmless deprecation warning from a dependency stack mismatch. The training script now suppresses that specific warning, and you can permanently resolve it by upgrading to compatible `transformers`/`huggingface_hub` versions when convenient.
+- **`ValueError: We need an offload_dir ...` while loading adapter:** run inference with `eval/generate_outputs.py` (it configures `--offload-dir ./offload` by default), or pass `--offload-dir <path>` explicitly.
+- **Terminal shows Python code mixed into your shell command (for example ending with `else full_text.strip()`):** your paste accidentally included script lines. Re-run from a saved `.py` file instead of pasting partial blocks directly.
 
 ---
 
