@@ -10,7 +10,7 @@ from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer
 
-DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 FALLBACK_MODEL = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 

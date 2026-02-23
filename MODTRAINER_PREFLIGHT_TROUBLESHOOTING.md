@@ -19,7 +19,7 @@ Use the decision flow below and switch to Python 3.12 only when needed.
   - fallback to `libbitsandbytes_cpu.so`
   - `CUDA Setup failed`
 - Warnings like:
-  - `The following directories listed in your path were found to be non-existent: meta-llama/Meta-Llama-3-8B-Instruct`
+  - `The following directories listed in your path were found to be non-existent: mistralai/Mistral-7B-Instruct-v0.2`
 
 ## Root causes
 
@@ -57,9 +57,9 @@ Ensure model identifiers are not inserted into `PATH`:
 
 ```bash
 unset MODEL_NAME
-export MODEL_NAME="meta-llama/Meta-Llama-3-8B-Instruct"
+export MODEL_NAME="mistralai/Mistral-7B-Instruct-v0.2"
 
-echo "$PATH" | tr ':' '\n' | rg 'meta-llama|govchain-model' || true
+echo "$PATH" | tr ':' '\n' | rg 'mistralai|govchain-model' || true
 ```
 
 If those entries appear in `PATH`, remove the faulty export from `~/.bashrc`/`~/.zshrc` and restart shell.
@@ -141,7 +141,7 @@ If `python3.12` is not installed on your host (for example: `python3.12: command
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python check_env.py --strict --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+python check_env.py --strict --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}"
 ```
 
 Only switch to Python 3.12 after preflight identifies a real blocker (e.g., wheel/build incompatibility).
@@ -158,7 +158,7 @@ pip install -r requirements.txt
 Then validate:
 
 ```bash
-python check_env.py --strict --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+python check_env.py --strict --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}"
 python -m bitsandbytes
 ```
 

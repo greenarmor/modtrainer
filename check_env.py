@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 
 TARGET_TORCH_CUDA = "12.4"
 
-DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 BASE_REQUIRED_PACKAGES: Dict[str, str] = {
     "torch": "2.5.1+cu124",
@@ -180,7 +180,7 @@ def check_path_contamination() -> Tuple[List[str], List[str]]:
     suspicious_entries = [
         entry
         for entry in path_entries
-        if "meta-llama" in entry or "govchain-model" in entry
+        if "mistralai" in entry or "meta-llama" in entry or "govchain-model" in entry
     ]
 
     if suspicious_entries:

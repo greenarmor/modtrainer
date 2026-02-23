@@ -10,7 +10,7 @@ This project fine-tunes an instruction model using LoRA adapters and then evalua
 - **Environment preflight check:** `check_env.py`
 - **Evaluation scripts:** `eval/run_policy_eval.py` and `eval/policy_checks.py`
 
-The default base model is `meta-llama/Meta-Llama-3-8B-Instruct` (gated on Hugging Face), with automatic fallback to `TinyLlama/TinyLlama-1.1B-Chat-v1.0` if loading fails.
+The default base model is `mistralai/Mistral-7B-Instruct-v0.2`, with automatic fallback to `TinyLlama/TinyLlama-1.1B-Chat-v1.0` if loading fails.
 
 ---
 
@@ -18,7 +18,7 @@ The default base model is `meta-llama/Meta-Llama-3-8B-Instruct` (gated on Huggin
 
 - Python 3.10+ (Python 3.12 preferred when available; Python 3.13 is supported with caveats)
 - Optional but strongly recommended: NVIDIA GPU + CUDA for faster training
-- A Hugging Face account and token if using gated models (for example, Meta Llama)
+- A Hugging Face account and token if using gated models
 
 Install dependencies:
 
@@ -68,7 +68,7 @@ set +a
 Run:
 
 ```bash
-python check_env.py --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+python check_env.py --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}"
 ```
 
 This verifies:
@@ -81,7 +81,7 @@ This verifies:
 If you want CI/automation to fail on warnings:
 
 ```bash
-python check_env.py --strict --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+python check_env.py --strict --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}"
 ```
 
 ---
@@ -119,7 +119,7 @@ python training/finetune_lora.py \
   --val-file "${VAL_FILE:-data/val.jsonl}" \
   --output-dir "${OUTPUT_DIR:-./govchain-model}" \
   --save-dir "${SAVE_DIR:-govchain-lora}" \
-  --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}" \
+  --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}" \
   --seed "${SEED:-42}" \
   --max-seq-length "${MAX_SEQ_LENGTH:-1024}" \
   --hf-token "${HF_TOKEN}"
@@ -179,7 +179,7 @@ cp .env.example .env
 set -a && source .env && set +a
 
 # 3) Preflight
-python check_env.py --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+python check_env.py --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}"
 
 # 4) Train
 python training/finetune_lora.py \
@@ -187,7 +187,7 @@ python training/finetune_lora.py \
   --val-file "${VAL_FILE:-data/val.jsonl}" \
   --output-dir "${OUTPUT_DIR:-./govchain-model}" \
   --save-dir "${SAVE_DIR:-govchain-lora}" \
-  --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}" \
+  --model-name "${MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.2}" \
   --seed "${SEED:-42}" \
   --max-seq-length "${MAX_SEQ_LENGTH:-1024}" \
   --hf-token "${HF_TOKEN}"
