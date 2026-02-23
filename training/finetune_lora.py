@@ -2,7 +2,7 @@ import argparse
 import os
 import random
 import warnings
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -13,6 +13,12 @@ from trl import SFTTrainer
 
 DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 FALLBACK_MODEL = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+MODEL_ALIASES = {
+    "mistral-7b-instruct-v0.2": DEFAULT_MODEL,
+    "mistral/Mistral-7B-Instruct-v0.2": DEFAULT_MODEL,
+    "minstral/Mistral-7B-Instruct-v0.2": DEFAULT_MODEL,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,38 +54,89 @@ def format_example(example: Dict[str, str]) -> Dict[str, str]:
     return {"text": prompt}
 
 
+def normalize_model_name(model_name: str) -> str:
+    normalized = model_name.strip()
+
+    if "minstral" in normalized.lower():
+        normalized = normalized.replace("minstral", "mistral")
+        normalized = normalized.replace("Minstral", "Mistral")
+
+    return MODEL_ALIASES.get(normalized, normalized)
+
+
+def load_tokenizer_with_fallback(model_name: str, hf_token: Optional[str]):
+    tok_kwargs = {"token": hf_token} if hf_token else {}
+
+    try:
+        return AutoTokenizer.from_pretrained(model_name, **tok_kwargs)
+    except Exception as fast_exc:  # noqa: BLE001
+        print(f"Fast tokenizer load failed for {model_name}: {fast_exc}. Retrying with use_fast=False.")
+        return AutoTokenizer.from_pretrained(model_name, use_fast=False, **tok_kwargs)
+
+
+def is_missing_protobuf_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "requires the protobuf library" in message or "protobuf" in message and "not found" in message
+
+
+def is_missing_sentencepiece_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "sentencepiece" in message and ("not found" in message or "install" in message)
+
+
+def raise_dependency_error(candidate: str, exc: Exception) -> None:
+    raise RuntimeError(
+        f"Failed to load {candidate} due to a missing tokenizer dependency: {exc}. "
+        "Install required packages in your venv and retry: `pip install protobuf sentencepiece`."
+    ) from exc
+
+
+def build_model_load_attempts(use_4bit: bool) -> List[Tuple[str, Dict[str, object]]]:
+    attempts: List[Tuple[str, Dict[str, object]]] = []
+
+    if use_4bit:
+        attempts.append(("4-bit quantized", {"load_in_4bit": True}))
+
+    attempts.append(("default", {}))
+    return attempts
+
+
+
+
+def model_has_fp16_parameters(model: torch.nn.Module) -> bool:
+    return any(param.dtype == torch.float16 for param in model.parameters())
+
+
 def load_model_with_fallback(model_name: str, hf_token: Optional[str] = None):
+    requested_model_name = model_name
+    model_name = normalize_model_name(model_name)
+    if model_name != requested_model_name:
+        print(f"Interpreting model name '{requested_model_name}' as '{model_name}'.")
+
     candidate_models = [model_name]
     if model_name != FALLBACK_MODEL:
         candidate_models.append(FALLBACK_MODEL)
 
     last_error = None
     for candidate in candidate_models:
-        try:
-            use_4bit = torch.cuda.is_available()
-            model_kwargs = {"device_map": "auto"}
-            if hf_token:
-                model_kwargs["token"] = hf_token
+        use_4bit = torch.cuda.is_available()
+        base_kwargs: Dict[str, object] = {"device_map": "auto", "low_cpu_mem_usage": True}
+        if hf_token:
+            base_kwargs["token"] = hf_token
 
-            if use_4bit:
-                try:
-                    model = AutoModelForCausalLM.from_pretrained(
-                        candidate,
-                        load_in_4bit=True,
-                        **model_kwargs,
-                    )
-                except Exception as quant_exc:  # noqa: BLE001
-                    print(f"4-bit load failed for {candidate}: {quant_exc}. Falling back to non-quantized load.")
-                    model = AutoModelForCausalLM.from_pretrained(candidate, **model_kwargs)
-            else:
+        for attempt_name, attempt_kwargs in build_model_load_attempts(use_4bit):
+            try:
+                model_kwargs = dict(base_kwargs)
+                model_kwargs.update(attempt_kwargs)
+                print(f"Trying model load for {candidate} with mode: {attempt_name}")
                 model = AutoModelForCausalLM.from_pretrained(candidate, **model_kwargs)
-
-            tok_kwargs = {"token": hf_token} if hf_token else {}
-            tokenizer = AutoTokenizer.from_pretrained(candidate, **tok_kwargs)
-            return candidate, model, tokenizer
-        except Exception as exc:  # noqa: BLE001
-            print(f"Failed to load {candidate}: {exc}")
-            last_error = exc
+                tokenizer = load_tokenizer_with_fallback(candidate, hf_token)
+                return candidate, model, tokenizer
+            except Exception as exc:  # noqa: BLE001
+                print(f"Failed loading {candidate} ({attempt_name}): {exc}")
+                if candidate == model_name and (is_missing_protobuf_error(exc) or is_missing_sentencepiece_error(exc)):
+                    raise_dependency_error(candidate, exc)
+                last_error = exc
 
     raise RuntimeError("Unable to load any configured model.") from last_error
 
@@ -118,6 +175,9 @@ def main() -> None:
     model = get_peft_model(model, lora_config)
 
     use_fp16 = torch.cuda.is_available()
+    if use_fp16 and model_has_fp16_parameters(model):
+        print("Detected FP16 model parameters; disabling Trainer fp16 mixed precision to avoid GradScaler unscale errors.")
+        use_fp16 = False
 
     training_args = TrainingArguments(
         output_dir=args.output_dir,

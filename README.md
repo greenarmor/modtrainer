@@ -77,6 +77,8 @@ This verifies:
 - CUDA availability
 - PATH contamination for obvious model-path mistakes
 - Installed package versions
+- Model repository accessibility on Hugging Face
+- Tokenizer dependencies (`protobuf`, `sentencepiece`)
 
 If you want CI/automation to fail on warnings:
 
@@ -130,6 +132,7 @@ What happens during training:
 1. Train/validation JSONL files are loaded.
 2. Records are formatted into an instruction/context/response prompt template.
 3. The script tries the selected base model; if that fails, it attempts `TinyLlama` fallback.
+   - Common typo protection: `minstral/...` and shorthand `mistral-7b-instruct-v0.2` are automatically normalized to `mistralai/Mistral-7B-Instruct-v0.2`.
 4. LoRA adapters are attached (`q_proj`, `v_proj`; rank 16; alpha 32).
 5. SFT training runs and checkpoints are saved.
 6. Final adapter model is saved in `--save-dir`.

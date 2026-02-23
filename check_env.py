@@ -4,11 +4,17 @@ import os
 import shlex
 import sys
 from importlib import metadata
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 TARGET_TORCH_CUDA = "12.4"
 
 DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+
+MODEL_ALIASES: Dict[str, str] = {
+    "mistral-7b-instruct-v0.2": DEFAULT_MODEL,
+    "mistral/Mistral-7B-Instruct-v0.2": DEFAULT_MODEL,
+    "minstral/Mistral-7B-Instruct-v0.2": DEFAULT_MODEL,
+}
 
 BASE_REQUIRED_PACKAGES: Dict[str, str] = {
     "torch": "2.5.1+cu124",
@@ -42,6 +48,16 @@ def parse_args() -> argparse.Namespace:
         help="Return non-zero exit code when warnings are found.",
     )
     return parser.parse_args()
+
+
+def normalize_model_name(model_name: str) -> str:
+    normalized = model_name.strip()
+
+    if "minstral" in normalized.lower():
+        normalized = normalized.replace("minstral", "mistral")
+        normalized = normalized.replace("Minstral", "Mistral")
+
+    return MODEL_ALIASES.get(normalized, normalized)
 
 
 
@@ -120,6 +136,46 @@ def check_token(model_name: str) -> Tuple[List[str], List[str]]:
         )
     else:
         infos.append("HF_TOKEN is not set (non-gated model may still work).")
+
+    return infos, warnings
+
+
+
+
+def check_model_accessibility(model_name: str, hf_token: Optional[str] = None) -> Tuple[List[str], List[str]]:
+    infos: List[str] = []
+    warnings: List[str] = []
+
+    try:
+        from huggingface_hub import model_info
+
+        kwargs = {"token": hf_token} if hf_token else {}
+        info = model_info(model_name, **kwargs)
+        infos.append(f"Model is reachable on Hugging Face: {info.id}")
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(
+            f"Unable to verify model accessibility for '{model_name}': {exc}. "
+            "Training may fail if this model cannot be downloaded; verify network/HF_TOKEN/model name."
+        )
+
+    return infos, warnings
+
+
+def check_tokenizer_dependencies() -> Tuple[List[str], List[str]]:
+    infos: List[str] = []
+    warnings: List[str] = []
+
+    try:
+        import google.protobuf  # type: ignore  # noqa: F401
+        infos.append("protobuf import: OK")
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"protobuf not importable: {exc}. Install with `pip install protobuf` to avoid tokenizer load failures.")
+
+    try:
+        import sentencepiece  # type: ignore  # noqa: F401
+        infos.append("sentencepiece import: OK")
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"sentencepiece not importable: {exc}. Install with `pip install sentencepiece`.")
 
     return infos, warnings
 
@@ -216,24 +272,31 @@ def check_packages() -> Tuple[List[str], List[str]]:
 
 def main() -> None:
     args = parse_args()
+    raw_model_name = args.model_name
+    args.model_name = normalize_model_name(args.model_name)
 
     all_infos: List[str] = []
     all_warnings: List[str] = []
 
     dotenv_infos, dotenv_warnings = load_dotenv_if_present()
     token_infos, token_warnings = check_token(args.model_name)
+    model_infos, model_warnings = check_model_accessibility(args.model_name, os.environ.get("HF_TOKEN"))
     py_infos, py_warnings = check_python_version()
+    tokenizer_infos, tokenizer_warnings = check_tokenizer_dependencies()
     cuda_infos, cuda_warnings = check_cuda()
     path_infos, path_warnings = check_path_contamination()
     pkg_infos, pkg_warnings = check_packages()
 
-    all_infos.extend(dotenv_infos + token_infos + py_infos + cuda_infos + path_infos + pkg_infos)
+    all_infos.extend(dotenv_infos + token_infos + model_infos + py_infos + tokenizer_infos + cuda_infos + path_infos + pkg_infos)
     all_warnings.extend(
-        dotenv_warnings + token_warnings + py_warnings + cuda_warnings + path_warnings + pkg_warnings
+        dotenv_warnings + token_warnings + model_warnings + py_warnings + tokenizer_warnings + cuda_warnings + path_warnings + pkg_warnings
     )
 
     print("== Preflight Environment Check ==")
-    print(f"Model target: {args.model_name}")
+    if raw_model_name != args.model_name:
+        print(f"Model target: {args.model_name} (normalized from: {raw_model_name})")
+    else:
+        print(f"Model target: {args.model_name}")
 
     if all_infos:
         print("\n[INFO]")
