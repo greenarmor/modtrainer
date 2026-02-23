@@ -12,7 +12,7 @@ DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 BASE_REQUIRED_PACKAGES: Dict[str, str] = {
     "torch": "2.5.1+cu124",
-    "transformers": "4.53.0",
+    "transformers": "4.39.3",
     "datasets": "2.18.0",
     "accelerate": "0.28.0",
     "peft": "0.10.0",

@@ -135,6 +135,17 @@ source .venv312/bin/activate
 python -m pip install --upgrade pip
 ```
 
+If `python3.12` is not installed on your host (for example: `python3.12: command not found`), keep using your current interpreter:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python check_env.py --strict --model-name "${MODEL_NAME:-meta-llama/Meta-Llama-3-8B-Instruct}"
+```
+
+Only switch to Python 3.12 after preflight identifies a real blocker (e.g., wheel/build incompatibility).
+
 Reinstall baseline packages:
 
 ```bash
