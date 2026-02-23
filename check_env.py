@@ -6,26 +6,30 @@ import sys
 from importlib import metadata
 from typing import Dict, List, Tuple
 
+TARGET_TORCH_CUDA = "12.4"
+
 DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 BASE_REQUIRED_PACKAGES: Dict[str, str] = {
     "torch": "2.5.1+cu124",
-    "transformers": "4.39.3",
+    "transformers": "4.53.0",
     "datasets": "2.18.0",
     "accelerate": "0.28.0",
     "peft": "0.10.0",
     "bitsandbytes": "0.45.2",
     "trl": "0.8.1",
+    "rich": "13.7.1",
     "numpy": "1.26.4",
 }
 
 
 def get_required_packages() -> Dict[str, str]:
     required = dict(BASE_REQUIRED_PACKAGES)
-    # sentencepiece 0.2.0 often lacks cp313 wheels and triggers source builds.
-    # Use 0.2.1 as the practical baseline on Python 3.13+.
-    required["sentencepiece"] = "0.2.1" if sys.version_info >= (3, 13) else "0.2.0"
+    # Use 0.2.1 across supported Python versions to avoid source-build pain.
+    required["sentencepiece"] = "0.2.1"
     return required
+
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -130,8 +134,18 @@ def check_cuda() -> Tuple[List[str], List[str]]:
         infos.append(f"torch version: {torch.__version__}")
         if torch.cuda.is_available():
             device_name = torch.cuda.get_device_name(0)
+            runtime_version = torch.version.cuda
             infos.append(f"CUDA available: True ({device_name})")
-            infos.append(f"CUDA runtime version (torch): {torch.version.cuda}")
+            infos.append(f"CUDA runtime version (torch): {runtime_version}")
+
+            if runtime_version != TARGET_TORCH_CUDA:
+                warnings.append(
+                    "Torch CUDA runtime is "
+                    f"{runtime_version}, but this repo requires {TARGET_TORCH_CUDA} (cu124) for stability on RTX 3090 setups. "
+                    "Reinstall from requirements.txt in a clean venv to force cu124 wheels."
+                )
+            else:
+                infos.append(f"Torch CUDA runtime matches required cu{TARGET_TORCH_CUDA.replace('.', '')}.")
         else:
             warnings.append(
                 "CUDA is not available. Training will run without 4-bit GPU acceleration and may be slow."
@@ -150,9 +164,9 @@ def check_python_version() -> Tuple[List[str], List[str]]:
     infos.append(f"python version: {py_version}")
 
     if sys.version_info >= (3, 13):
-        warnings.append(
-            "Python 3.13 detected. Some pinned CUDA wheel combinations (especially torchvision/torchaudio) "
-            "may be unavailable. Prefer Python 3.12 for the most predictable install matrix."
+        infos.append(
+            "Python 3.13 detected. This repo can work on 3.13, but if you hit wheel/install issues "
+            "use Python 3.12 for the most predictable environment."
         )
 
     return infos, warnings
@@ -186,8 +200,8 @@ def check_packages() -> Tuple[List[str], List[str]]:
 
     for pkg, expected in get_required_packages().items():
         try:
-            importlib.import_module(pkg)
-            installed = metadata.version(pkg)
+            module = importlib.import_module(pkg)
+            installed = module.__version__ if pkg == "torch" else metadata.version(pkg)
             if installed != expected:
                 warnings.append(
                     f"{pkg} version mismatch: installed={installed}, expected={expected}"

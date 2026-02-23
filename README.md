@@ -16,7 +16,7 @@ The default base model is `meta-llama/Meta-Llama-3-8B-Instruct` (gated on Huggin
 
 ## 2) Prerequisites
 
-- Python 3.10+ (recommended)
+- Python 3.10+ (Python 3.12 recommended; 3.13 can work with caveats)
 - Optional but strongly recommended: NVIDIA GPU + CUDA for faster training
 - A Hugging Face account and token if using gated models (for example, Meta Llama)
 
@@ -225,7 +225,8 @@ The image default command launches `python3 training/finetune_lora.py`.
 - **Very slow training:** verify CUDA is available (`python check_env.py`).
 - **OOM errors:** reduce `--max-seq-length` or tune batch/accumulation settings in `training/finetune_lora.py`.
 - **Policy eval failing:** inspect printed violations/missing concepts and adjust generated responses or dataset targets.
-- **`sentencepiece` build error on Python 3.13 (`cmake`/`pkg-config` missing):** install `sentencepiece==0.2.1` instead of `0.2.0`, or use a Python 3.12 virtualenv for strict baseline pins.
+- **`sentencepiece` build error on Python 3.13 (`cmake`/`pkg-config` missing):** ensure `sentencepiece==0.2.1` is installed (already pinned here), or switch to a Python 3.12 virtualenv if your platform lacks wheels.
+- **Host has CUDA 12.8 installed but repo requires CUDA 12.4 torch wheels:** keep your NVIDIA driver, but make sure the Python wheel is `torch==2.5.1+cu124` from this repo. Use a clean venv and run `pip install --force-reinstall -r requirements.txt`, then verify `torch.version.cuda` reports `12.4` via `python check_env.py`.
 
 ---
 
