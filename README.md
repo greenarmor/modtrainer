@@ -228,6 +228,7 @@ The image default command launches `python3 training/finetune_lora.py`.
 - **`sentencepiece` build error on Python 3.13 (`cmake`/`pkg-config` missing):** ensure `sentencepiece==0.2.1` is installed (already pinned here), or switch to a Python 3.12 virtualenv if your platform lacks wheels.
 - **`python3.12: command not found` when creating a venv:** use your available interpreter instead (`python3 -m venv venv`), then verify compatibility with `python check_env.py --strict`. Only switch interpreters if preflight reports blocking issues.
 - **Host has CUDA 12.8 installed but repo requires CUDA 12.4 torch wheels:** keep your NVIDIA driver, but make sure the Python wheel is `torch==2.5.1+cu124` from this repo. Use a clean venv and run `pip install --force-reinstall -r requirements.txt`, then verify `torch.version.cuda` reports `12.4` via `python check_env.py`.
+- **`FutureWarning` about `resume_download` from `huggingface_hub.file_download`:** this is a harmless deprecation warning from a dependency stack mismatch. The training script now suppresses that specific warning, and you can permanently resolve it by upgrading to compatible `transformers`/`huggingface_hub` versions when convenient.
 
 ---
 
@@ -236,4 +237,3 @@ The image default command launches `python3 training/finetune_lora.py`.
 - Training outputs/checkpoints under `--output-dir` (default `./govchain-model`)
 - Saved LoRA adapter under `--save-dir` (default `govchain-lora`)
 - Policy evaluation summary in terminal output with non-zero exit for threshold breaches
-

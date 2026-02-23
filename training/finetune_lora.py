@@ -1,6 +1,7 @@
 import argparse
 import os
 import random
+import warnings
 from typing import Dict, Optional
 
 import numpy as np
@@ -83,8 +84,18 @@ def load_model_with_fallback(model_name: str, hf_token: Optional[str] = None):
     raise RuntimeError("Unable to load any configured model.") from last_error
 
 
+def configure_warnings() -> None:
+    warnings.filterwarnings(
+        "ignore",
+        message=r"`resume_download` is deprecated",
+        category=FutureWarning,
+        module=r"huggingface_hub\.file_download",
+    )
+
+
 def main() -> None:
     args = parse_args()
+    configure_warnings()
     set_seed(args.seed)
 
     dataset = load_dataset("json", data_files={"train": args.train_file, "validation": args.val_file})
